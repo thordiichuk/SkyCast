@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skycast – Weather & Day Planner</title>
+
+<style>
+/* =========================================================
+   1. THEME: colours live in variables, so one change restyles
+      the whole site. Dark mode just redefines the variables.
+   ========================================================= */
+:root {
+  --bg: #eef3fb;      --card: #ffffff;   --text: #14213d;
+  --muted: #64708a;   --accent: #3b6cf6; --chip: #e3eafa;
+  --line: #e2e8f3;    --danger: #d9534f;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e1424;    --card: #171f35;   --text: #e8eefc;
+    --muted: #93a0bd; --accent: #7a9cff; --chip: #222c48;
+    --line: #27324f;
+  }
+}
+
+/* =========================================================
+   2. BASE
+   ========================================================= */
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); line-height: 1.45;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
+h1 { font-size: 1.5rem; margin: 0 0 4px; }
+h2 { font-size: 1.05rem; margin: 0 0 10px; }
+.sub { color: var(--muted); margin: 0 0 18px; font-size: .95rem; }
+.hidden { display: none; }
+
+input, select {
+  font: inherit; color: var(--text); background: var(--card);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+}
+input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button { font: inherit; cursor: pointer; border: 0; border-radius: 12px; }
+
+/* =========================================================
+   3. SEARCH
+   ========================================================= */
+.search { display: flex; gap: 8px; }
+.search input { flex: 1; min-width: 0; }
+.btn { background: var(--accent); color: #fff; padding: 0 20px; font-weight: 600; min-height: 44px; }
+.quick { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 18px; }
+.chip { background: var(--chip); color: var(--text); padding: 6px 12px; font-size: .85rem; border-radius: 999px; }
+
+/* =========================================================
+   4. CURRENT WEATHER CARD
+   ========================================================= */
+.hero {
+  border-radius: 22px; padding: 24px; color: #fff;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  transition: background .4s;
+}
+.hero .city { font-size: 1.1rem; }
+.hero .temp { font-size: 4rem; font-weight: 700; line-height: 1; margin: 6px 0; }
+.hero .cond { font-size: 1.1rem; }
+.hero .icon { font-size: 5rem; line-height: 1; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0 22px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; text-align: center; }
+.stat b { display: block; font-size: 1.1rem; }
+.stat span { color: var(--muted); font-size: .8rem; }
+
+/* =========================================================
+   5. 7-DAY STRIP
+   ========================================================= */
+.days { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 22px; }
+.day {
+  flex: 0 0 auto; min-width: 84px; text-align: center; color: var(--text);
+  background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 10px 8px;
+}
+.day.on { border-color: var(--accent); }
+.day .d { font-weight: 600; font-size: .85rem; }
+.day .i { font-size: 1.6rem; }
+.day .t { font-size: .85rem; color: var(--muted); }
+
+/* =========================================================
+   6. PLANNER CARD (ideas, hourly strip, tasks)
+   ========================================================= */
+.planner { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 18px; }
+.ph { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.ph h2 { margin: 0; }
+.tip { margin: 12px 0 0; background: var(--chip); border-radius: 12px; padding: 10px 12px; font-size: .9rem; }
+.sec { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+
+.sg { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.sc { background: var(--chip); border-radius: 14px; padding: 12px; }
+.sc h3 { margin: 0 0 6px; font-size: .8rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.sc ul { margin: 0; padding-left: 18px; }
+.sc .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.sc .chip { background: var(--card); }
+
+.hours { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; }
+.hr { flex: 0 0 auto; width: 58px; text-align: center; background: var(--chip); border-radius: 12px; padding: 8px 4px; font-size: .8rem; position: relative; }
+.hr .i { font-size: 1.3rem; }
+.hr b { display: block; }
+.hr .dot { position: absolute; top: 4px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+.tform { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.tform input { flex: 1 1 160px; }
+.task { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.task .tx { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.task.done .tx { text-decoration: line-through; color: var(--muted); }
+.task .meta { color: var(--muted); font-size: .8rem; white-space: nowrap; }
+.task .meta.warn { color: var(--danger); }
+.task .del { background: none; color: var(--muted); font-size: 1.1rem; padding: 4px 8px; }
+.empty, .msg { color: var(--muted); font-size: .9rem; }
+.msg { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+.note { margin-top: 22px; color: var(--muted); font-size: .78rem; text-align: center; }
+</style>
+</head>
+
+<body>
+<!-- =========================================================
+     HTML: only the structure. JavaScript fills in the content.
+     ========================================================= -->
+<div class="wrap">
+  <h1>⛅ Skycast</h1>
+  <p class="sub">Look up a city, see the weather, and plan your day around it.</p>
+
+  <div class="search">
+    <input id="q" list="cities" placeholder="Enter a city, e.g. Gdańsk" autocomplete="off" aria-label="City">
+    <button class="btn" id="go">Search</button>
+  </div>
+  <datalist id="cities"></datalist>
+  <div class="quick" id="quick"></div>
+
+  <div id="msg" class="msg hidden"></div>
+
+  <div id="out" class="hidden">
+    <!-- current weather -->
+    <div class="hero" id="hero">
+      <div>
+        <div class="city" id="city"></div>
+        <div class="temp" id="temp"></div>
+        <div class="cond" id="cond"></div>
+      </div>
+      <div class="icon" id="icon"></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="feels"></b><span>Feels like</span></div>
+      <div class="stat"><b id="hum"></b><span>Humidity</span></div>
+      <div class="stat"><b id="wind"></b><span>Wind</span></div>
+    </div>
+
+    <!-- 7-day strip -->
+    <h2>7-day outlook — pick a day to plan</h2>
+    <div class="days" id="days"></div>
+
+    <!-- planner for the selected day -->
+    <div class="planner">
+      <div class="ph">
+        <h2 id="ptitle"></h2>
+        <select id="focus" aria-label="Plan focus">
+          <option value="active">Active</option>
+          <option value="relax">Relaxed</option>
+          <option value="social">Social</option>
+        </select>
+      </div>
+
+      <div class="sg" id="smart"></div>
+      <div class="tip" id="tip"></div>
+
+      <div class="sec">
+        <h2>Hour by hour</h2>
+        <div class="hours" id="hours"></div>
+      </div>
+
+      <div class="sec">
+        <h2>Your tasks for this day</h2>
+        <div class="tform">
+          <input id="tin" placeholder="Add a task, e.g. Dentist, Gym, Call mom" maxlength="120" aria-label="Task">
+          <select id="thr" aria-label="Hour"></select>
+          <button class="btn" id="tadd">Add</button>
+        </div>
+        <div id="tlist"></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="note" id="note"></p>
+</div>
+
+<script>
+/* =========================================================
+   JAVASCRIPT
+   Flow: user searches -> we load weather -> save it in `state`
+         -> render() draws the page from `state`.
+   ========================================================= */
+
+/* ---------- 1. Small helpers ---------- */
+const $ = id => document.getElementById(id);
+const pad = h => String(h).padStart(2, "0") + ":00";          // 7 -> "07:00"
+
+// Turns text into a number, and a number into a repeatable "random" generator.
+// Used only for DEMO data, so the same city + date always gives the same weather.
+function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rnd(seed) {
+  return () => {
+    seed = Math.imul(seed ^ seed >>> 15, seed | 1);
+    seed ^= seed + Math.imul(seed ^ seed >>> 7, seed | 61);
+    return ((seed ^ seed >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+/* ---------- 2. Constants ---------- */
+// kind -> [icon, label, good for outdoor?]
+const KINDS = {
+  sunny:  ["☀️", "Sunny", true],
+  partly: ["⛅", "Partly cloudy", true],
+  cloudy: ["☁️", "Cloudy", false],
+  rain:   ["🌧️", "Rain", false],
+  storm:  ["⛈️", "Thunderstorm", false],
+  snow:   ["❄️", "Snow", false],
+  fog:    ["🌫️", "Foggy", false]
+};
+const GRADIENTS = {
+  sunny: ["#f6a93b", "#ffd36e"], partly: ["#5b8cff", "#9fd0ff"], cloudy: ["#7a8aa5", "#aebbd0"],
+  rain: ["#3d5a8a", "#7b9bc8"],  storm: ["#3a3f63", "#6b6f99"],  snow: ["#7fa6d6", "#cfe3f8"],
+  fog: ["#8a96a6", "#c5cdd8"]
+};
+const IDEAS = {
+  out: {
+    active: ["Run or cycle along the water", "Hike or park workout, take a picnic", "Evening walk to catch the sunset"],
+    relax:  ["Slow coffee outside with a book", "Lazy lunch on a terrace", "Stroll and stargaze after dinner"],
+    social: ["Brunch at an outdoor café", "Park games or a market with friends", "Dinner on a rooftop or patio"]
+  },
+  in: {
+    active: ["Gym session or home workout", "Swimming pool or climbing wall", "Stretch or yoga at home"],
+    relax:  ["Sleep in, tea and a good book", "Museum, spa or a cozy café", "Movie or a long bath"],
+    social: ["Coffee with friends at a warm café", "Board games, bowling or a museum", "Cook dinner together"]
+  }
+};
+
+/* ---------- 3. State: the single source of truth ---------- */
+let state = { city: "", country: "", live: false, now: null, days: [], sel: 0 };
+// state.now  = { t, feels, hum, wind, k }                      (current conditions)
+// state.days = [{ key, date, t, k, hours:[{h,t,k}] }, ...]     (7 days)
+
+/* ---------- 4. Getting weather data ---------- */
+
+// Open-Meteo gives numeric WMO codes; turn them into our simple kinds.
+function kindFromCode(c) {
+  if (c === 0) return "sunny";
+  if (c <= 2) return "partly";
+  if (c === 3) return "cloudy";
+  if (c === 45 || c === 48) return "fog";
+  if ((c >= 71 && c <= 77) || c === 85 || c === 86) return "snow";
+  if (c >= 95) return "storm";
+  return "rain"; // drizzle, rain, showers
+}
+
+// 4a. LIVE data from Open-Meteo (free, no API key)
+async function liveWeather(name) {
+  const geo = await fetch(
+    "https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&name=" + encodeURIComponent(name)
+  ).then(r => r.json());
+  if (!geo.results || !geo.results.length) throw new Error("notfound");
+  const place = geo.results[0];
+
+  const w = await fetch(
+    "https://api.open-meteo.com/v1/forecast?latitude=" + place.latitude + "&longitude=" + place.longitude +
+    "&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code" +
+    "&hourly=temperature_2m,weather_code" +
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min" +
+    "&timezone=auto&forecast_days=7"
+  ).then(r => r.json());
+
+  const days = w.daily.time.map((dateStr, i) => {
+    const hours = [];
+    for (let h = 6; h <= 23; h++) {
+      hours.push({ h, t: Math.round(w.hourly.temperature_2m[i * 24 + h]), k: kindFromCode(w.hourly.weather_code[i * 24 + h]) });
+    }
+    return {
+      key: dateStr,                                        // "2026-10-13"
+      date: new Date(dateStr + "T12:00"),
+      t: Math.round((w.daily.temperature_2m_max[i] + w.daily.temperature_2m_min[i]) / 2),
+      k: kindFromCode(w.daily.weather_code[i]),
+      hours
+    };
+  });
+  const c = w.current;
+  return {
+    city: place.name, country: place.country || "", live: true, days,
+    now: {
+      t: Math.round(c.temperature_2m), feels: Math.round(c.apparent_temperature),
+      hum: Math.round(c.relative_humidity_2m), wind: Math.round(c.wind_speed_10m), k: kindFromCode(c.weather_code)
+    }
+  };
+}
+
+// 4b. DEMO data (used when offline or the service is unreachable)
+// name: [country, average temp, wetness 0-1, base wind]
+const DEMO = {
+  "Gdańsk": ["Poland", 11, .6, 18], "Warsaw": ["Poland", 12, .45, 13], "London": ["UK", 13, .65, 16],
+  "Paris": ["France", 14, .5, 12],  "Berlin": ["Germany", 11, .5, 14], "Madrid": ["Spain", 19, .2, 11],
+  "Rome": ["Italy", 20, .3, 10],    "New York": ["USA", 14, .45, 15], "Tokyo": ["Japan", 18, .5, 12],
+  "Sydney": ["Australia", 20, .35, 17], "Dubai": ["UAE", 34, .02, 14], "Reykjavik": ["Iceland", 4, .7, 26]
+};
+const NEARBY = { // which conditions can appear hour-to-hour inside a given kind of day
+  sunny: ["sunny", "sunny", "partly"], partly: ["partly", "sunny", "cloudy"], cloudy: ["cloudy", "cloudy", "partly", "rain"],
+  rain: ["rain", "rain", "cloudy"], storm: ["storm", "rain", "rain", "cloudy"], snow: ["snow", "snow", "cloudy"], fog: ["fog", "fog", "cloudy"]
+};
+
+function findDemo(text) {
+  const v = text.trim().toLowerCase();
+  const names = Object.keys(DEMO);
+  return names.find(n => n.toLowerCase() === v) || names.find(n => n.toLowerCase().startsWith(v)) || null;
+}
+
+function demoWeather(name) {
+  const [country, base, wet, wind] = DEMO[name];
+  const days = [];
+  let now = null;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(); d.setDate(d.getDate() + i);
+    const r = rnd(hash(name + d.toDateString()));
+    const t = Math.round(base + (r() - .5) * 8), w = r();
+    let k;
+    if (w < wet * .45) k = t <= 1 ? "snow" : (r() < .15 ? "storm" : "rain");
+    else if (w < wet * .6) k = "cloudy";
+    else if (w < wet * .7) k = "fog";
+    else k = r() < .55 ? "sunny" : "partly";
+
+    const hours = [];
+    for (let h = 6; h <= 23; h++) {
+      const rh = rnd(hash(name + d.toDateString() + "h" + h));
+      const opts = NEARBY[k];
+      hours.push({ h, t: Math.round(t + 4 * Math.sin((h - 9) / 24 * 2 * Math.PI) - 1), k: opts[Math.floor(rh() * opts.length)] });
+    }
+    const hum = Math.round(40 + wet * 40 + r() * 15), wnd = Math.round(wind * (.6 + r() * .8));
+    if (i === 0) now = { t, feels: t - Math.round(wnd / 10), hum, wind: wnd, k };
+    days.push({ key: d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"), date: d, t, k, hours });
+  }
+  return { city: name, country, live: false, days, now };
+}
+
+// 4c. Try live first, fall back to demo
+async function loadCity(text) {
+  if (!text.trim()) { showMsg("Type a city name to begin."); return; }
+  showMsg("Loading…");
+  let data;
+  try {
+    data = await liveWeather(text);
+  } catch (err) {
+    const demo = findDemo(text);
+    if (demo) data = demoWeather(demo);
+    else {
+      showMsg(err.message === "notfound"
+        ? "City “" + text + "” not found. Check the spelling."
+        : "Couldn’t reach the weather service. Check your internet connection.");
+      return;
+    }
+  }
+  state = { ...data, sel: 0 };
+  $("q").value = state.city;
+  $("msg").classList.add("hidden");
+  $("out").classList.remove("hidden");
+  $("note").textContent = state.live
+    ? "Live data from Open-Meteo.com"
+    : "Demo data (simulated). Live weather could not be loaded.";
+  render();
+}
+
+function showMsg(text) {
+  $("msg").textContent = text;
+  $("msg").classList.remove("hidden");
+  if (text !== "Loading…") $("out").classList.add("hidden");
+}
+
+/* ---------- 5. Tasks: saved in the browser (localStorage) ---------- */
+let store = {};
+try { store = JSON.parse(localStorage.getItem("skycast_tasks") || "{}") || {}; } catch (e) { store = {}; }
+const saveTasks = () => { try { localStorage.setItem("skycast_tasks", JSON.stringify(store)); } catch (e) {} };
+
+function addTask() {
+  const text = $("tin").value.trim();
+  if (!text || !state.days.length) return;
+  const key = state.days[state.sel].key;
+  (store[key] = store[key] || []).push({ text, h: $("thr").value, done: false });
+  saveTasks();
+  $("tin").value = "";
+  renderPlanner();
+}
+
+/* ---------- 6. Rendering: draw the page from `state` ---------- */
+function render() {
+  renderHero();
+  renderDays();
+  renderPlanner();
+}
+
+function renderHero() {
+  const n = state.now, [icon, label] = KINDS[n.k], g = GRADIENTS[n.k];
+  $("hero").style.background = "linear-gradient(135deg," + g[0] + "," + g[1] + ")";
+  $("city").textContent = state.city + (state.country ? ", " + state.country : "");
+  $("temp").textContent = n.t + "°C";
+  $("cond").textContent = label;
+  $("icon").textContent = icon;
+  $("feels").textContent = n.feels + "°C";
+  $("hum").textContent = n.hum + "%";
+  $("wind").textContent = n.wind + " km/h";
+}
+
+function renderDays() {
+  $("days").innerHTML = state.days.map((d, i) =>
+    '<button class="day' + (i === state.sel ? " on" : "") + '" data-i="' + i + '">' +
+      '<div class="d">' + (i === 0 ? "Today" : d.date.toLocaleDateString("en", { weekday: "short" })) + "</div>" +
+      '<div class="i">' + KINDS[d.k][0] + "</div>" +
+      '<div class="t">' + d.t + "°C</div></button>"
+  ).join("");
+}
+
+function renderPlanner() {
+  const day = state.days[state.sel];
+  const [icon, label, outdoor] = KINDS[day.k];
+  const weekend = [0, 6].includes(day.date.getDay());
+
+  $("ptitle").textContent =
+    day.date.toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" }) + " · " + icon + " " + label;
+
+  renderSmart(day, outdoor);
+  renderTip(day, weekend);
+  renderHours(day);
+  renderTasks(day);
+}
+
+// "Bring" checklist + "Ideas for today"
+function renderSmart(day, outdoor) {
+  const temps = day.hours.map(o => o.t);
+  const min = Math.min(...temps), max = Math.max(...temps);
+  const daytime = day.hours.filter(o => o.h >= 7 && o.h <= 21);
+  const wet = daytime.some(o => ["rain", "storm", "snow"].includes(o.k));
+  const sunHours = daytime.filter(o => o.k === "sunny" || o.k === "partly").length;
+
+  const bring = [];
+  if (wet) bring.push("☔ Umbrella");
+  if (day.k === "snow") bring.push("🧤 Gloves & boots");
+  if (sunHours >= 3) bring.push("😎 Sunglasses", "🧴 Sunscreen");
+  if (min < 8) bring.push("🧥 Warm jacket"); else if (min < 16) bring.push("🧥 Light jacket");
+  if (max >= 25) bring.push("💧 Water bottle");
+  if (!bring.length) bring.push("👍 Nothing special");
+
+  const ideas = IDEAS[outdoor ? "out" : "in"][$("focus").value];
+  $("smart").innerHTML =
+    '<div class="sc"><h3>Bring</h3><div class="chips">' + bring.map(b => '<span class="chip">' + b + "</span>").join("") + "</div></div>" +
+    '<div class="sc"><h3>Ideas for today</h3><ul>' + ideas.map(i => "<li>" + i + "</li>").join("") + "</ul></div>";
+}
+
+function renderTip(day, weekend) {
+  let tip = day.t <= 5 ? "Cold day — dress in warm layers."
+          : day.t >= 25 ? "Hot day — drink water and use sunscreen."
+          : "Mild temperatures — a light jacket is enough.";
+  if (day.k === "rain" || day.k === "storm") tip = "Take an umbrella and allow extra travel time. " + tip;
+  if (day.k === "snow") tip = "Watch for slippery roads and wear proper boots. " + tip;
+  $("tip").textContent = "💡 " + tip + (weekend ? " Weekend — keep it flexible." : " Weekday — plan around your work hours.");
+}
+
+function renderHours(day) {
+  const used = new Set((store[day.key] || []).filter(t => t.h !== "").map(t => +t.h));
+  $("hours").innerHTML = day.hours.map(o => {
+    const night = (o.h >= 20) && (o.k === "sunny" || o.k === "partly");
+    return '<div class="hr" title="' + KINDS[o.k][1] + '">' +
+      (used.has(o.h) ? '<span class="dot"></span>' : "") +
+      "<div>" + String(o.h).padStart(2, "0") + 'h</div><div class="i">' + (night ? "🌙" : KINDS[o.k][0]) + "</div><b>" + o.t + "°</b></div>";
+  }).join("");
+}
+
+function renderTasks(day) {
+  const list = $("tlist");
+  list.textContent = "";
+  const tasks = store[day.key] || [];
+  if (!tasks.length) {
+    const e = document.createElement("div");
+    e.className = "empty";
+    e.textContent = "No tasks yet — add one and pick an hour to see the weather for it.";
+    list.appendChild(e);
+    return;
+  }
+  // keep the original index so delete/check act on the right task after sorting
+  tasks.map((t, i) => ({ t, i }))
+    .sort((a, b) => (a.t.h === "" ? 99 : +a.t.h) - (b.t.h === "" ? 99 : +b.t.h))
+    .forEach(({ t, i }) => {
+      const row = document.createElement("div");
+      row.className = "task" + (t.done ? " done" : "");
+      row.dataset.i = i;
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox"; cb.checked = !!t.done; cb.setAttribute("aria-label", "Done");
+      cb.style.padding = "0";
+
+      const tx = document.createElement("span");
+      tx.className = "tx";
+      tx.textContent = t.text;                       // textContent = safe against injected HTML
+
+      const meta = document.createElement("span");
+      meta.className = "meta";
+      if (t.h !== "") {
+        const w = day.hours.find(o => o.h === +t.h);
+        const bad = ["rain", "storm", "snow"].includes(w.k);
+        meta.textContent = pad(+t.h) + " · " + KINDS[w.k][0] + " " + w.t + "°" + (bad ? " · bad weather" : "");
+        if (bad) meta.classList.add("warn");
+      } else {
+        meta.textContent = "Any time";
+      }
+
+      const del = document.createElement("button");
+      del.className = "del"; del.textContent = "✕"; del.setAttribute("aria-label", "Delete task");
+
+      row.append(cb, tx, meta, del);
+      list.appendChild(row);
+    });
+}
+
+/* ---------- 7. Events ---------- */
+$("go").onclick = () => loadCity($("q").value);
+$("q").onkeydown = e => { if (e.key === "Enter") loadCity($("q").value); };
+$("quick").onclick = e => { const c = e.target.dataset.c; if (c) loadCity(c); };
+$("days").onclick = e => {
+  const b = e.target.closest(".day");
+  if (b) { state.sel = +b.dataset.i; renderDays(); renderPlanner(); }
+};
+$("focus").onchange = renderPlanner;
+$("tadd").onclick = addTask;
+$("tin").onkeydown = e => { if (e.key === "Enter") addTask(); };
+$("tlist").onclick = e => {                                // one listener handles every task row
+  const row = e.target.closest(".task");
+  if (!row) return;
+  const key = state.days[state.sel].key, i = +row.dataset.i;
+  if (e.target.classList.contains("del")) store[key].splice(i, 1);
+  else if (e.target.type === "checkbox") store[key][i].done = e.target.checked;
+  else return;
+  saveTasks();
+  renderPlanner();
+};
+
+/* ---------- 8. Start ---------- */
+$("cities").innerHTML = Object.keys(DEMO).map(c => '<option value="' + c + '">').join("");
+$("thr").innerHTML = '<option value="">Any time</option>' +
+  Array.from({ length: 18 }, (_, i) => '<option value="' + (i + 6) + '">' + pad(i + 6) + "</option>").join("");
+$("quick").innerHTML = ["Gdańsk", "London", "Tokyo", "Dubai"].map(c => '<button class="chip" data-c="' + c + '">' + c + "</button>").join("");
+
+loadCity("Gdańsk");
+</script>
+</body>
+</html>
